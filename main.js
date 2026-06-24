@@ -722,8 +722,12 @@ window.addEventListener('message', function(event) {
             enterScene('campus');
         }
     }
-    // ★★★ 新增：处理跑酷游戏结束消息 ★★★
+    // ★★★ 修改：处理跑酷游戏结束消息 ★★★
     else if (data && data.type === 'running_exit') {
+        // ★ 必须先隐藏跑酷的遮罩层！否则它会挡住结算对话框，导致按钮点不动！
+        document.getElementById('running-overlay').style.display = 'none';
+        document.getElementById('dialog-box').style.display = 'flex';
+        
         if (window.GameEngine.handleRunningResult) {
             window.GameEngine.handleRunningResult(data.data);
         } else {
@@ -731,7 +735,6 @@ window.addEventListener('message', function(event) {
         }
     }
 });
-
 // 页面加载后检查登录状态
 document.addEventListener('DOMContentLoaded', function() {
     window.checkLoginStatus();

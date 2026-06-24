@@ -129,6 +129,7 @@
         <div class="ui-left">
             <div class="badge">🏃 分数 <span id="scoreDisplay">0</span></div>
             <div class="badge">🪙 金币 <span id="coinDisplay">0</span></div>
+            <div class="badge">❤️ 生命 <span id="healthDisplay">2</span></div>
             <div class="badge">🎵 节拍 <span id="bpmDisplay">120</span> BPM</div>
         </div>
         <div class="ui-right">
@@ -147,6 +148,7 @@
         const ctx = canvas.getContext('2d');
         const scoreSpan = document.getElementById('scoreDisplay');
         const coinSpan = document.getElementById('coinDisplay');
+        const healthSpan = document.getElementById('healthDisplay');
         const bpmSpan = document.getElementById('bpmDisplay');
         const comboDisplay = document.getElementById('comboDisplay');
         const actionBtn = document.getElementById('actionBtn');
@@ -160,6 +162,8 @@
         let game = {
             score: 0,
             coins: 0,
+            health: 2,             // ★ 新增：生命值
+            invincibleTime: 0,     // ★ 新增：无敌时间帧数
             bpm: 120,
             gameOver: false,
             started: false,
@@ -205,6 +209,8 @@
         function resetGame() {
             game.score = 0;
             game.coins = 0;
+            game.health = 2;
+            game.invincibleTime = 0;
             game.gameOver = false;
             game.started = true;
             game.frame = 0;
@@ -223,6 +229,7 @@
             updateBPM();
             scoreSpan.textContent = '0';
             coinSpan.textContent = '0';
+            healthSpan.textContent = '2';
             comboDisplay.textContent = '✨ 炫彩特效 待解锁 (1000分)';
         }
 
@@ -233,7 +240,6 @@
             actionBtn.className = 'btn btn-exit';
         }
 
-        // ★ 修复：退出函数 - 发送消息后立即隐藏自身（但实际由父页面控制显示）
         function exitRunning() {
             const data = {
                 type: 'running_exit',
@@ -257,12 +263,12 @@
             let height, width, y;
             if (type === 'barrier') {
                 width = 35;
-                height = 120;
-                y = 180;
+                height = 100;   // ★ 修复：调整高空墙的高度
+                y = 205;         // ★ 修复：调整高空墙的Y坐标（205到305），站立(296)必撞，下蹲(310)可过
             } else {
                 width = 28;
                 height = 44;
-                y = GROUND_Y - height;
+                y = GROUND_Y - height; // 地面障碍物
             }
             game.obstacles.push({
                 x: x,
@@ -292,6 +298,11 @@
         function update() {
             if (game.gameOver || !game.started) return;
 
+            // ★ 新增：无敌时间倒计时
+            if (game.invincibleTime > 0) {
+                game.invincibleTime--;
+            }
+
             game.speedMultiplier = 1.0 + game.score / 3000;
             let currentSpeed = game.speed * Math.min(game.speedMultiplier, 2.0);
             currentSpeed *= (1 + (game.bpm - 120) / 1500);
@@ -311,7 +322,8 @@
                     game.player.jumpVelocity = 0;
                 }
             } else {
-                game.player.y = PLAYER_Y_BASE - (game.player.isDucking ? 16 : 0);
+                // ★ 修复：下蹲时Y坐标保持地面不变，只是碰撞高度变低
+                game.player.y = PLAYER_Y_BASE;
             }
 
             const pX = PLAYER_X;
@@ -326,18 +338,31 @@
                     game.obstacles.splice(i, 1);
                     continue;
                 }
+                
+                // 碰撞检测
                 if (rectCollide(pX + 4, pY + 4, pW - 8, pH - 8, ob.x, ob.y, ob.width, ob.height)) {
                     let avoided = false;
                     if (ob.type === 'crate' && game.player.isJumping) avoided = true;
                     else if (ob.type === 'barrier' && game.player.isDucking) avoided = true;
+                    
                     if (!avoided) {
-                        game.gameOver = true;
-                        game.started = false;
-                        game.coins += calcCoinReward(game.score);
-                        coinSpan.textContent = game.coins;
-                        actionBtn.textContent = '🏫 返回校园广场';
-                        actionBtn.className = 'btn btn-exit';
-                        return;
+                        // ★ 修改：不再是一碰就死，而是扣血+无敌时间
+                        if (game.invincibleTime === 0) {
+                            game.health--;
+                            game.invincibleTime = 60; // 1秒无敌时间 (60帧)
+                            game.score = Math.max(0, game.score - 30); // 撞击扣30分
+                            healthSpan.textContent = game.health;
+                            
+                            if (game.health <= 0) {
+                                game.gameOver = true;
+                                game.started = false;
+                                game.coins += calcCoinReward(game.score);
+                                coinSpan.textContent = game.coins;
+                                actionBtn.textContent = '🏫 返回校园广场';
+                                actionBtn.className = 'btn btn-exit';
+                                return;
+                            }
+                        }
                     }
                 }
             }
@@ -447,11 +472,20 @@
                 const hue = (game.frame * 2.5) % 360;
                 playerColor = `hsl(${hue}, 85%, 65%)`;
             }
+            
+            // ★ 新增：无敌时间内闪烁效果
+            if (game.invincibleTime > 0 && Math.floor(game.invincibleTime / 5) % 2 === 0) {
+                ctx.globalAlpha = 0.4;
+            }
+
             ctx.fillStyle = playerColor;
             ctx.shadowColor = '#8fcbff';
             ctx.shadowBlur = 20;
             ctx.fillRect(pX, pY, PLAYER_WIDTH, pH);
             ctx.shadowBlur = 0;
+            
+            ctx.globalAlpha = 1.0; // 恢复透明度
+            
             ctx.fillStyle = '#0b1420';
             ctx.fillRect(pX + 6, pY + 8, 5, 7);
             ctx.fillRect(pX + PLAYER_WIDTH - 11, pY + 8, 5, 7);
@@ -534,7 +568,6 @@
             if (!game.player.isJumping) game.player.isDucking = false;
         });
 
-        // ★ 按钮点击：根据状态决定行为
         actionBtn.addEventListener('click', function() {
             if (game.gameOver || !game.started) {
                 if (game.gameOver) {
@@ -547,7 +580,6 @@
             }
         });
 
-        // ★ 画布点击
         canvas.addEventListener('click', () => {
             if (game.gameOver) {
                 exitRunning();

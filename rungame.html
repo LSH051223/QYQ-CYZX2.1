@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>节奏跑酷 · 单跑道</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            background: #0b0f1a;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        .game-wrapper {
+            background: #151e30;
+            padding: 20px 20px 28px;
+            border-radius: 48px 48px 28px 28px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(255,255,255,0.06);
+        }
+        canvas {
+            display: block;
+            width: 800px;
+            height: 400px;
+            border-radius: 24px;
+            background: #101826;
+            box-shadow: inset 0 0 50px rgba(0, 20, 50, 0.7);
+            cursor: pointer;
+            touch-action: none;
+        }
+        .ui-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 16px 8px 4px 8px;
+            color: #d0d9f0;
+            font-weight: 500;
+            font-size: 18px;
+            letter-spacing: 0.3px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .ui-left {
+            display: flex;
+            gap: 24px;
+            flex-wrap: wrap;
+        }
+        .ui-right {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        .badge {
+            background: #253050;
+            padding: 6px 18px;
+            border-radius: 60px;
+            box-shadow: inset 0 2px 3px rgba(0,0,0,0.4);
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .badge span {
+            color: #f7d44a;
+            font-weight: 700;
+        }
+        .btn {
+            background: #2f3d66;
+            border: none;
+            color: white;
+            font-weight: 600;
+            padding: 8px 22px;
+            border-radius: 60px;
+            font-size: 16px;
+            box-shadow: 0 6px 0 #171f33;
+            transition: 0.08s linear;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+        }
+        .btn:active {
+            transform: translateY(5px);
+            box-shadow: 0 1px 0 #171f33;
+        }
+        .btn-primary {
+            background: #4a6bb5;
+            box-shadow: 0 6px 0 #1f325a;
+        }
+        .btn-exit {
+            background: #2f3d66;
+            box-shadow: 0 6px 0 #171f33;
+        }
+        .hint {
+            color: #7c89ae;
+            font-size: 14px;
+            margin-left: 4px;
+        }
+        @media (max-width: 860px) {
+            canvas {
+                width: 100%;
+                height: auto;
+                aspect-ratio: 800 / 400;
+            }
+            .game-wrapper {
+                padding: 12px;
+                border-radius: 28px;
+                width: 96%;
+            }
+            .ui-bar {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .ui-left, .ui-right {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="game-wrapper">
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div class="ui-bar">
+        <div class="ui-left">
+            <div class="badge">🏃 分数 <span id="scoreDisplay">0</span></div>
+            <div class="badge">🪙 金币 <span id="coinDisplay">0</span></div>
+            <div class="badge">🎵 节拍 <span id="bpmDisplay">120</span> BPM</div>
+        </div>
+        <div class="ui-right">
+            <button class="btn btn-primary" id="actionBtn">▶ 开始跑酷</button>
+        </div>
+    </div>
+    <div style="display: flex; justify-content: space-between; padding: 0 10px; margin-top: 6px; flex-wrap: wrap; gap: 6px;">
+        <span class="hint">⬆️ 跳跃 · ⬇️ 下蹲</span>
+        <span class="hint" id="comboDisplay">✨ 炫彩特效 待解锁</span>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreSpan = document.getElementById('scoreDisplay');
+        const coinSpan = document.getElementById('coinDisplay');
+        const bpmSpan = document.getElementById('bpmDisplay');
+        const comboDisplay = document.getElementById('comboDisplay');
+        const actionBtn = document.getElementById('actionBtn');
+
+        const PLAYER_WIDTH = 32;
+        const PLAYER_HEIGHT = 44;
+        const GROUND_Y = 340;
+        const PLAYER_Y_BASE = GROUND_Y - PLAYER_HEIGHT;
+        const PLAYER_X = 120;
+
+        let game = {
+            score: 0,
+            coins: 0,
+            bpm: 120,
+            gameOver: false,
+            started: false,
+            frame: 0,
+            speed: 2.0,
+            speedMultiplier: 1.0,
+            player: {
+                y: PLAYER_Y_BASE,
+                width: PLAYER_WIDTH,
+                height: PLAYER_HEIGHT,
+                isDucking: false,
+                isJumping: false,
+                jumpVelocity: 0,
+                jumpGravity: 0.1,
+                jumpPower: -6,
+            },
+            obstacles: [],
+            coinsList: [],
+            spawnCounter: 0,
+            spawnInterval: 28,
+            effectIntensity: 0,
+            beatCounter: 0,
+            beatThreshold: 30,
+            viewOffset: 0,
+        };
+
+        let keys = { down: false };
+        let touchStartY = 0;
+        let touchActive = false;
+
+        function updateBPM() {
+            let raw = 120 + Math.floor(game.score / 100) * 5;
+            game.bpm = Math.min(240, raw);
+            bpmSpan.textContent = game.bpm;
+            game.beatThreshold = Math.max(12, Math.floor(3600 / game.bpm));
+        }
+
+        function calcCoinReward(score) {
+            if (score < 10) return 0;
+            return Math.round(score / 10);
+        }
+
+        function resetGame() {
+            game.score = 0;
+            game.coins = 0;
+            game.gameOver = false;
+            game.started = true;
+            game.frame = 0;
+            game.speed = 1.0;
+            game.speedMultiplier = 1.0;
+            game.obstacles = [];
+            game.coinsList = [];
+            game.spawnCounter = 0;
+            game.effectIntensity = 0;
+            game.beatCounter = 0;
+            game.player.y = PLAYER_Y_BASE;
+            game.player.isDucking = false;
+            game.player.isJumping = false;
+            game.player.jumpVelocity = 0;
+            game.viewOffset = 0;
+            updateBPM();
+            scoreSpan.textContent = '0';
+            coinSpan.textContent = '0';
+            comboDisplay.textContent = '✨ 炫彩特效 待解锁 (1000分)';
+        }
+
+        function startGame() {
+            resetGame();
+            game.started = true;
+            actionBtn.textContent = '🏫 返回校园广场';
+            actionBtn.className = 'btn btn-exit';
+        }
+
+        // ★ 修复：退出函数 - 发送消息后立即隐藏自身（但实际由父页面控制显示）
+        function exitRunning() {
+            const data = {
+                type: 'running_exit',
+                data: {
+                    coins: game.coins
+                }
+            };
+            window.parent.postMessage(data, '*');
+        }
+
+        function doJump() {
+            if (!game.player.isJumping && !game.player.isDucking) {
+                game.player.isJumping = true;
+                game.player.jumpVelocity = game.player.jumpPower;
+            }
+        }
+
+        function spawnObstacle() {
+            const type = Math.random() > 0.5 ? 'crate' : 'barrier';
+            const x = 800 + 30 + Math.random() * 40;
+            let height, width, y;
+            if (type === 'barrier') {
+                width = 35;
+                height = 120;
+                y = 180;
+            } else {
+                width = 28;
+                height = 44;
+                y = GROUND_Y - height;
+            }
+            game.obstacles.push({
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                type: type,
+                active: true,
+            });
+        }
+
+        function spawnCoin() {
+            const x = 800 + 20 + Math.random() * 70;
+            const y = GROUND_Y - 25 - Math.random() * 55;
+            game.coinsList.push({
+                x: x,
+                y: y,
+                radius: 12,
+                collected: false,
+            });
+        }
+
+        function rectCollide(ax, ay, aw, ah, bx, by, bw, bh) {
+            return ax < bx + bw && ax + aw > bx && ay < by + bh && ay + ah > by;
+        }
+
+        function update() {
+            if (game.gameOver || !game.started) return;
+
+            game.speedMultiplier = 1.0 + game.score / 3000;
+            let currentSpeed = game.speed * Math.min(game.speedMultiplier, 2.0);
+            currentSpeed *= (1 + (game.bpm - 120) / 1500);
+
+            if (keys.down && !game.player.isJumping) {
+                game.player.isDucking = true;
+            } else if (!keys.down && !game.player.isJumping) {
+                game.player.isDucking = false;
+            }
+
+            if (game.player.isJumping) {
+                game.player.jumpVelocity += game.player.jumpGravity;
+                game.player.y += game.player.jumpVelocity;
+                if (game.player.y >= PLAYER_Y_BASE) {
+                    game.player.y = PLAYER_Y_BASE;
+                    game.player.isJumping = false;
+                    game.player.jumpVelocity = 0;
+                }
+            } else {
+                game.player.y = PLAYER_Y_BASE - (game.player.isDucking ? 16 : 0);
+            }
+
+            const pX = PLAYER_X;
+            const pY = game.player.y;
+            const pW = PLAYER_WIDTH;
+            const pH = game.player.isDucking ? PLAYER_HEIGHT - 14 : PLAYER_HEIGHT;
+
+            for (let i = game.obstacles.length - 1; i >= 0; i--) {
+                const ob = game.obstacles[i];
+                ob.x -= currentSpeed;
+                if (ob.x + ob.width < -20) {
+                    game.obstacles.splice(i, 1);
+                    continue;
+                }
+                if (rectCollide(pX + 4, pY + 4, pW - 8, pH - 8, ob.x, ob.y, ob.width, ob.height)) {
+                    let avoided = false;
+                    if (ob.type === 'crate' && game.player.isJumping) avoided = true;
+                    else if (ob.type === 'barrier' && game.player.isDucking) avoided = true;
+                    if (!avoided) {
+                        game.gameOver = true;
+                        game.started = false;
+                        game.coins += calcCoinReward(game.score);
+                        coinSpan.textContent = game.coins;
+                        actionBtn.textContent = '🏫 返回校园广场';
+                        actionBtn.className = 'btn btn-exit';
+                        return;
+                    }
+                }
+            }
+
+            for (let i = game.coinsList.length - 1; i >= 0; i--) {
+                const coin = game.coinsList[i];
+                coin.x -= currentSpeed;
+                if (coin.x + coin.radius < -20) {
+                    game.coinsList.splice(i, 1);
+                    continue;
+                }
+                if (!coin.collected) {
+                    const dx = (pX + pW/2) - coin.x;
+                    const dy = (pY + pH/2) - coin.y;
+                    if (Math.abs(dx) < 40 && Math.abs(dy) < 40) {
+                        coin.collected = true;
+                        game.coins += 1;
+                        coinSpan.textContent = game.coins;
+                        game.coinsList.splice(i, 1);
+                    }
+                }
+            }
+
+            game.spawnCounter++;
+            let baseSpawn = Math.max(120, 150 - Math.floor(game.score / 300));
+            if (game.spawnCounter >= baseSpawn) {
+                game.spawnCounter = 0;
+                if (Math.random() < 0.55) spawnObstacle();
+                if (Math.random() < 0.5) spawnCoin();
+                if (Math.random() < 0.25) spawnCoin();
+            }
+
+            game.beatCounter++;
+            if (game.beatCounter >= game.beatThreshold) {
+                game.beatCounter = 0;
+                if (game.score > 0) game.score += 1;
+            }
+
+            game.score += 0.2 * (1 + game.speedMultiplier * 0.12);
+            scoreSpan.textContent = Math.floor(game.score);
+
+            updateBPM();
+            if (game.score >= 1000) {
+                game.effectIntensity = Math.min(1.0, (game.score - 1000) / 700);
+                comboDisplay.textContent = `🌈 炫彩 Lv.${Math.floor(game.effectIntensity * 100)}%`;
+            } else {
+                game.effectIntensity = 0;
+                comboDisplay.textContent = '✨ 炫彩特效 待解锁 (1000分)';
+            }
+
+            game.viewOffset = (game.viewOffset + currentSpeed * 0.25) % 400;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, 800, 400);
+
+            let grad = ctx.createLinearGradient(0, 0, 800, 400);
+            if (game.effectIntensity > 0.05) {
+                const h1 = (game.frame * 0.6) % 360;
+                const h2 = (h1 + 50) % 360;
+                grad.addColorStop(0, `hsl(${h1}, 70%, 12%)`);
+                grad.addColorStop(0.5, `hsl(${h2}, 65%, 18%)`);
+                grad.addColorStop(1, `hsl(${(h1+30)%360}, 60%, 10%)`);
+            } else {
+                grad.addColorStop(0, '#101826');
+                grad.addColorStop(1, '#1a2545');
+            }
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, 800, 400);
+
+            ctx.fillStyle = `rgba(70, 100, 150, ${0.25 + game.effectIntensity * 0.2})`;
+            ctx.fillRect(0, GROUND_Y + 4, 800, 24);
+            for (let i = -2; i < 12; i++) {
+                let x = (i * 70 + game.viewOffset) % 900 - 100;
+                ctx.fillStyle = `rgba(180, 210, 255, ${0.08 + game.effectIntensity * 0.12})`;
+                ctx.fillRect(x, GROUND_Y - 2, 30, 6);
+            }
+
+            game.obstacles.forEach(ob => {
+                let color = ob.type === 'crate' ? '#d97a4a' : '#5f8db5';
+                if (game.effectIntensity > 0.2) {
+                    const hue = (ob.x * 0.3 + game.frame) % 360;
+                    color = `hsl(${hue}, 75%, 55%)`;
+                }
+                ctx.fillStyle = color;
+                ctx.shadowColor = ob.type === 'crate' ? 'rgba(255,200,100,0.3)' : 'rgba(100,200,255,0.5)';
+                ctx.shadowBlur = 15;
+                ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+                ctx.shadowBlur = 0;
+            });
+
+            game.coinsList.forEach(coin => {
+                ctx.beginPath();
+                ctx.arc(coin.x, coin.y, coin.radius, 0, Math.PI * 2);
+                ctx.fillStyle = '#f7d44a';
+                ctx.shadowColor = '#f7b32b';
+                ctx.shadowBlur = 18;
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            const pX = PLAYER_X;
+            const pY = game.player.y;
+            const pH = game.player.isDucking ? PLAYER_HEIGHT - 14 : PLAYER_HEIGHT;
+            let playerColor = '#6fc3ff';
+            if (game.effectIntensity > 0.2) {
+                const hue = (game.frame * 2.5) % 360;
+                playerColor = `hsl(${hue}, 85%, 65%)`;
+            }
+            ctx.fillStyle = playerColor;
+            ctx.shadowColor = '#8fcbff';
+            ctx.shadowBlur = 20;
+            ctx.fillRect(pX, pY, PLAYER_WIDTH, pH);
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#0b1420';
+            ctx.fillRect(pX + 6, pY + 8, 5, 7);
+            ctx.fillRect(pX + PLAYER_WIDTH - 11, pY + 8, 5, 7);
+
+            if (game.beatCounter < 5) {
+                ctx.fillStyle = `rgba(255,255,220,${0.06})`;
+                ctx.fillRect(0, 0, 800, 400);
+            }
+
+            if (game.gameOver) {
+                ctx.font = 'bold 44px "Segoe UI", sans-serif';
+                ctx.fillStyle = '#f0eef7';
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = 20;
+                ctx.textAlign = 'center';
+                ctx.fillText('🏁 游戏结束', 400, 170);
+                ctx.font = '24px sans-serif';
+                ctx.fillText(`得分: ${Math.floor(game.score)}  ·  金币: ${game.coins}`, 400, 235);
+                ctx.shadowBlur = 0;
+            } else if (!game.started) {
+                ctx.font = '28px sans-serif';
+                ctx.fillStyle = '#aab9e6';
+                ctx.textAlign = 'center';
+                ctx.fillText('点击 "▶ 开始跑酷" 或按 Enter 键开始', 400, 200);
+            }
+        }
+
+        function gameLoop() {
+            if (!game.gameOver && game.started) update();
+            draw();
+            game.frame++;
+            requestAnimationFrame(gameLoop);
+        }
+
+        // ---------- 事件绑定 ----------
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp' || e.key === 'w') {
+                e.preventDefault();
+                if (!e.repeat) doJump();
+            }
+            else if (e.key === 'ArrowDown' || e.key === 's') {
+                e.preventDefault(); keys.down = true;
+            }
+            else if (e.key === 'Enter' && (game.gameOver || !game.started)) {
+                e.preventDefault();
+                if (game.gameOver) {
+                    exitRunning();
+                } else {
+                    startGame();
+                }
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowDown' || e.key === 's') { e.preventDefault(); keys.down = false; }
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            const t = e.touches[0];
+            touchStartY = t.clientY;
+            touchActive = true;
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (!touchActive || game.gameOver || !game.started) return;
+            const t = e.touches[0];
+            const dy = t.clientY - touchStartY;
+            if (dy < -40) {
+                doJump();
+                touchStartY = t.clientY;
+            } else if (dy > 40 && !game.player.isJumping) {
+                game.player.isDucking = true;
+                touchStartY = t.clientY;
+            }
+        });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            touchActive = false;
+            if (!game.player.isJumping) game.player.isDucking = false;
+        });
+
+        // ★ 按钮点击：根据状态决定行为
+        actionBtn.addEventListener('click', function() {
+            if (game.gameOver || !game.started) {
+                if (game.gameOver) {
+                    exitRunning();
+                } else {
+                    startGame();
+                }
+            } else {
+                exitRunning();
+            }
+        });
+
+        // ★ 画布点击
+        canvas.addEventListener('click', () => {
+            if (game.gameOver) {
+                exitRunning();
+            } else if (!game.started) {
+                startGame();
+            }
+        });
+
+        // ---------- 初始化 ----------
+        resetGame();
+        game.started = false;
+        actionBtn.textContent = '▶ 开始跑酷';
+        actionBtn.className = 'btn btn-primary';
+        gameLoop();
+    })();
+</script>
+</body>
+</html>

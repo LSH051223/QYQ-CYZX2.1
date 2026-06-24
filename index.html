@@ -1,0 +1,1123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- ★ 强制禁用浏览器缓存 ★ -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <title>长意中学 - 平衡重制版</title>
+    <style>
+        /* ===== 全局重置 & 基础 ===== */
+        :root {
+            --primary-color: #ff6b9d;
+            --bg-color: #1a1a2e;
+            --text-color: #eaeaea;
+            --box-bg: rgba(0, 0, 0, 0.85);
+        }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', sans-serif;
+        }
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            user-select: none;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        .login-btn {
+            background: rgba(255,107,157,0.3);
+            border: 2px solid var(--primary-color);
+            color: #fff;
+            padding: 6px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .login-btn:hover {
+            background: var(--primary-color);
+            box-shadow: 0 0 20px rgba(255,107,157,0.3);
+        }
+
+        #modal-body::-webkit-scrollbar { width: 4px; }
+        #modal-body::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 4px; }
+
+        /* ===== 游戏容器 ===== */
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            display: none;
+            flex-direction: column;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 0.5s ease;
+            overflow: hidden;
+        }
+        .submit-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .btn-disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* 在 style 标签中添加 */
+#running-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 999;
+    background: #0b0f1a;
+    display: none;
+    flex-direction: column;
+}
+#running-overlay iframe {
+    width: 100%;
+    height: 100%;
+    border: none;
+    display: block;
+}
+
+
+/* ===== 体育老师模态框 ===== */
+.teacher-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.75);
+    z-index: 500;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(6px);
+}
+.teacher-modal-box {
+    background: rgba(20, 20, 40, 0.97);
+    border: 3px solid #ff6b9d;
+    border-radius: 20px;
+    padding: 30px 40px;
+    max-width: 480px;
+    width: 92%;
+    text-align: center;
+    box-shadow: 0 0 60px rgba(255, 107, 157, 0.25);
+    animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes modalPop {
+    0% { transform: scale(0.7); opacity: 0; }
+    100% { transform: scale(1); opacity: 1; }
+}
+.teacher-modal-box .teacher-img {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
+    margin: 0 auto 16px;
+    border: 4px solid #ff6b9d;
+    box-shadow: 0 0 30px rgba(255, 107, 157, 0.3);
+}
+.teacher-modal-box .teacher-name {
+    font-size: 28px;
+    color: #ff6b9d;
+    font-weight: bold;
+    margin-bottom: 6px;
+}
+.teacher-modal-box .teacher-title {
+    font-size: 16px;
+    color: #aaa;
+    margin-bottom: 14px;
+}
+.teacher-modal-box .teacher-desc {
+    font-size: 16px;
+    color: #e0e0e0;
+    line-height: 1.7;
+    margin-bottom: 24px;
+}
+.teacher-modal-box .teacher-desc .highlight {
+    color: #ffda44;
+    font-weight: bold;
+}
+.teacher-modal-box .confirm-btn {
+    padding: 12px 44px;
+    background: #ff6b9d;
+    color: #fff;
+    border: none;
+    border-radius: 30px;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.3s;
+    box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+}
+.teacher-modal-box .confirm-btn:hover {
+    background: #ff4578;
+    transform: scale(1.06);
+    box-shadow: 0 0 30px rgba(255, 107, 157, 0.5);
+}
+
+        /* ===== 状态栏 ===== */
+        #status-bar {
+            height: 80px;
+            position: relative;
+            z-index: 10;
+            border-bottom: 2px solid var(--primary-color);
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .status-bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            filter: blur(8px) brightness(0.6);
+            transform: scale(1.2);
+            z-index: -1;
+        }
+        .avatar-box {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            border: 3px solid rgba(255, 255, 255, 0.8);
+            box-shadow: 0 0 10px var(--primary-color), inset 0 0 5px rgba(0,0,0,0.5);
+            background-color: #333;
+            overflow: hidden;
+            cursor: pointer;
+            position: relative;
+            transition: transform 0.3s;
+        }
+        .avatar-box:hover { transform: scale(1.05); }
+        .avatar-box img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .avatar-upload-hint {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            font-size: 10px;
+            text-align: center;
+            padding: 2px 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .avatar-box:hover .avatar-upload-hint { opacity: 1; }
+        .status-info {
+            display: flex;
+            flex: 1;
+            justify-content: space-between;
+            align-items: center;
+            margin-left: 15px;
+            position: relative;
+            z-index: 1;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .stat-group {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .status-item {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 13px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+        }
+        .status-val {
+            color: #fff;
+            font-weight: bold;
+        }
+        .status-icon {
+            font-size: 14px;
+        }
+        .money-text {
+            color: #ffda44;
+        }
+
+        /* ===== 主场景 ===== */
+        #main-screen {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ===== 角色立绘层 ===== */
+        #character-layer {
+            position: absolute;
+            bottom: 0;
+            right: 5%;
+            height: 85%;
+            width: 400px;
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: bottom center;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* ===== 侧边导航 ===== */
+        #side-nav {
+            position: absolute;
+            right: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 25;
+            width: 180px;
+            max-height: 80vh;
+            overflow-y: auto;
+            padding: 10px 5px;
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary-color) transparent;
+        }
+        #side-nav::-webkit-scrollbar { width: 4px; }
+        #side-nav::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 4px; }
+        #side-nav::-webkit-scrollbar-track { background: transparent; }
+        .nav-btn {
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.25);
+            padding: 10px 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: 0.3s;
+            font-size: 15px;
+            text-align: left;
+            backdrop-filter: blur(4px);
+            font-weight: 500;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .nav-btn:hover {
+            border-color: var(--primary-color);
+            background: rgba(255, 107, 157, 0.25);
+            transform: translateX(-4px);
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.15);
+        }
+        .nav-btn:active { transform: scale(0.97); }
+
+        /* ===== 对话框 ===== */
+        #dialog-box {
+            height: 200px;
+            background: var(--box-bg);
+            border-top: 3px solid var(--primary-color);
+            padding: 16px 30px;
+            z-index: 10;
+            position: relative;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        #speaker-name {
+            font-size: 18px;
+            color: var(--primary-color);
+            margin-bottom: 6px;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        #dialog-text {
+            font-size: 15px;
+            line-height: 1.7;
+            flex: 1;
+            overflow-y: auto;
+            padding-right: 8px;
+            min-height: 40px;
+            max-height: 80px;
+        }
+        #dialog-text::-webkit-scrollbar { width: 4px; }
+        #dialog-text::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+        #choices-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 8px;
+            justify-content: flex-end;
+            flex-shrink: 0;
+            max-height: 90px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+        #choices-container::-webkit-scrollbar { width: 4px; }
+        #choices-container::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+        .choice-btn {
+            padding: 6px 16px;
+            background: transparent;
+            border: 1px solid var(--primary-color);
+            color: white;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 13px;
+            transition: 0.2s;
+            white-space: nowrap;
+        }
+        .choice-btn:hover {
+            background: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        /* ===== 覆盖层 ===== */
+        .overlay-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--bg-color);
+            z-index: 100;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 10vh;
+            overflow-y: auto;
+            box-sizing: border-box;
+        }
+        #title-screen {
+            background-image: url('images/bg/bg_title.jpg');
+            background-size: cover;
+            background-position: center;
+        }
+        .screen-title {
+            font-size: 48px;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            text-shadow: 0 0 15px rgba(255, 107, 157, 0.6);
+        }
+        .input-field {
+            padding: 12px;
+            font-size: 18px;
+            border: 2px solid var(--primary-color);
+            background: transparent;
+            color: white;
+            outline: none;
+            text-align: center;
+            width: 300px;
+            border-radius: 6px;
+        }
+        .submit-btn {
+            margin-top: 30px;
+            padding: 12px 50px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            border-radius: 6px;
+            transition: 0.3s;
+        }
+        .submit-btn:hover {
+            background: #ff4578;
+            transform: scale(1.05);
+        }
+
+        /* ===== 角色选择 ===== */
+        #char-select-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            width: 80%;
+            max-width: 900px;
+        }
+        .char-card {
+            border: 2px solid rgba(255,255,255,0.2);
+            background: rgba(0,0,0,0.5);
+            border-radius: 10px;
+            padding: 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .char-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-5px);
+        }
+        .char-card.selected {
+            border-color: #4caf50;
+            box-shadow: 0 0 15px rgba(76, 175, 80, 0.5);
+        }
+        .char-img-box {
+            width: 100%;
+            aspect-ratio: 2/3;
+            background-color: #333;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            background-size: cover;
+            background-position: top;
+        }
+        .char-name {
+            font-size: 18px;
+            color: var(--primary-color);
+        }
+
+        /* ===== 状态弹窗 ===== */
+        #status-modal {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.95);
+            border: 2px solid var(--primary-color);
+            padding: 30px;
+            z-index: 50;
+            display: none;
+            width: 60%;
+            max-width: 600px;
+            border-radius: 10px;
+        }
+        #status-content {
+            white-space: pre-line;
+            line-height: 1.8;
+        }
+        .close-btn {
+            margin-top: 20px;
+            padding: 8px 30px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+        }
+
+        /* ============================================================
+           人物介绍界面（固定头部 + 4列网格 + 详细按钮）
+           ============================================================ */
+        #character-intro-screen {
+            padding: 20px 30px 40px;
+        }
+        .intro-fixed-header {
+            position: sticky;
+            top: 0;
+            left: 0;
+            width: 100%;
+            z-index: 120;
+            background: var(--bg-color);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid rgba(255, 107, 157, 0.3);
+            margin-bottom: 25px;
+            flex-shrink: 0;
+            backdrop-filter: blur(6px);
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+        }
+        .intro-fixed-header .screen-title {
+            font-size: 30px;
+            margin-bottom: 0;
+            text-shadow: 0 0 15px rgba(255, 107, 157, 0.6);
+        }
+        .close-btn-fixed {
+            padding: 8px 28px;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: 0.3s;
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+            flex-shrink: 0;
+        }
+        .close-btn-fixed:hover {
+            background: #ff4578;
+            transform: scale(1.04);
+            box-shadow: 0 0 30px rgba(255, 107, 157, 0.5);
+        }
+
+        #intro-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 22px;
+            width: 100%;
+            max-width: 1200px;
+            padding-bottom: 30px;
+            margin: 0 auto;
+        }
+
+        .char-intro-card {
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            background: rgba(0, 0, 0, 0.6);
+            border-radius: 12px;
+            padding: 14px 12px 16px;
+            cursor: default;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(2px);
+        }
+        .char-intro-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-6px);
+            box-shadow: 0 8px 30px rgba(255, 107, 157, 0.2);
+            background: rgba(0, 0, 0, 0.75);
+        }
+        .intro-img-box {
+            width: 100%;
+            aspect-ratio: 1/1;
+            background-color: #333;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background-size: cover;
+            background-position: center;
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            transition: 0.3s;
+            flex-shrink: 0;
+        }
+        .char-intro-card:hover .intro-img-box { border-color: var(--primary-color); }
+        .intro-name {
+            font-size: 17px;
+            color: var(--primary-color);
+            text-align: center;
+            font-weight: bold;
+            margin-top: 4px;
+        }
+        .intro-gender {
+            font-size: 13px;
+            color: #aaa;
+            margin-top: 2px;
+        }
+        .intro-desc {
+            font-size: 13px;
+            color: #d0d0d0;
+            text-align: center;
+            margin-top: 6px;
+            line-height: 1.4;
+            min-height: 36px;
+            padding: 0 4px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .detail-btn {
+            margin-top: 10px;
+            padding: 5px 18px;
+            background: transparent;
+            border: 1.5px solid var(--primary-color);
+            color: var(--primary-color);
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: 0.3s;
+            letter-spacing: 0.5px;
+            flex-shrink: 0;
+        }
+        .detail-btn:hover {
+            background: var(--primary-color);
+            color: #fff;
+            box-shadow: 0 0 20px rgba(255, 107, 157, 0.3);
+            transform: scale(1.04);
+        }
+        .detail-btn:active { transform: scale(0.96); }
+
+        .char-detail-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 200;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(6px);
+        }
+        .char-detail-box {
+            background: rgba(20, 20, 40, 0.97);
+            border: 2px solid var(--primary-color);
+            border-radius: 16px;
+            padding: 30px 40px;
+            max-width: 520px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 0 60px rgba(255, 107, 157, 0.25);
+            position: relative;
+        }
+        .char-detail-box .detail-close {
+            position: sticky;
+            top: 0;
+            float: right;
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            font-size: 20px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+        .char-detail-box .detail-close:hover {
+            background: #ff4578;
+            transform: scale(1.1);
+        }
+        .char-detail-box .detail-img {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background-size: cover;
+            background-position: center;
+            margin: 0 auto 16px;
+            border: 3px solid var(--primary-color);
+            box-shadow: 0 0 30px rgba(255, 107, 157, 0.2);
+        }
+        .char-detail-box .detail-name {
+            font-size: 26px;
+            color: var(--primary-color);
+            text-align: center;
+            font-weight: bold;
+        }
+        .char-detail-box .detail-gender {
+            text-align: center;
+            color: #aaa;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        .char-detail-box .detail-info {
+            color: #e0e0e0;
+            font-size: 15px;
+            line-height: 1.8;
+            margin-top: 10px;
+        }
+        .char-detail-box .detail-info strong { color: var(--primary-color); }
+
+        /* ===== 商品商店 ===== */
+        .shop-container {
+            width: 100%;
+            max-width: 900px;
+            margin: 10px auto;
+        }
+        .items-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            max-height: 340px;
+            overflow-y: auto;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            border-radius: 10px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        .items-grid::-webkit-scrollbar { width: 4px; }
+        .items-grid::-webkit-scrollbar-thumb { background: var(--primary-color); border-radius: 10px; }
+        .item-card {
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            background: rgba(0, 0, 0, 0.7);
+            border-radius: 10px;
+            padding: 12px 10px;
+            cursor: pointer;
+            transition: 0.3s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 190px;
+        }
+        .item-card.selected {
+            border-color: var(--primary-color);
+            background: rgba(255, 107, 157, 0.12);
+        }
+        .item-card:hover {
+            border-color: var(--primary-color);
+            transform: translateY(-3px);
+        }
+        .item-img {
+            width: 80px;
+            height: 80px;
+            background-size: cover;
+            background-position: center;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            background-color: #333;
+            flex-shrink: 0;
+        }
+        .item-name {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-bottom: 4px;
+            text-align: center;
+            font-size: 15px;
+        }
+        .item-desc {
+            color: #ccc;
+            font-size: 12px;
+            text-align: center;
+            margin-bottom: 6px;
+            line-height: 1.3;
+            min-height: 32px;
+        }
+        .item-price {
+            color: #ffda44;
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .quantity-input {
+            width: 50px;
+            padding: 4px;
+            border: 1px solid var(--primary-color);
+            border-radius: 4px;
+            text-align: center;
+            margin-bottom: 8px;
+            font-size: 13px;
+            background: rgba(0, 0, 0, 0.4);
+            color: white;
+        }
+        .buy-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 6px 18px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            font-size: 14px;
+        }
+        .buy-btn:hover {
+            background: #ff4578;
+            transform: scale(1.04);
+        }
+        .item-detail {
+            margin-top: 12px;
+            padding: 12px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            color: #eaeaea;
+            font-size: 13px;
+            max-height: 100px;
+            overflow-y: auto;
+            line-height: 1.6;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* ===== 钓鱼覆盖层 (iframe) ===== */
+        #fishing-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 999;
+            background: #0B5E3A;
+            display: none;
+            flex-direction: column;
+        }
+        #fishing-overlay iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            display: block;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 992px) {
+            #intro-grid { grid-template-columns: repeat(3, 1fr); gap: 18px; }
+            .intro-fixed-header .screen-title { font-size: 26px; }
+        }
+        @media (max-width: 768px) {
+            #side-nav { right: 8px; width: 140px; gap: 8px; }
+            .nav-btn { padding: 7px 12px; font-size: 13px; }
+            #status-bar { height: 64px; padding: 0 10px; }
+            .status-item { font-size: 11px; padding: 3px 8px; }
+            #dialog-box { height: 170px; padding: 12px 16px; }
+            #dialog-text { font-size: 13px; max-height: 60px; }
+            .items-grid { grid-template-columns: repeat(2, 1fr); max-height: 260px; }
+            .item-img { width: 60px; height: 60px; }
+            #char-select-grid { grid-template-columns: repeat(2, 1fr); }
+            .screen-title { font-size: 32px; }
+            #intro-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+            .intro-fixed-header { padding: 10px 14px; flex-wrap: wrap; gap: 10px; }
+            .intro-fixed-header .screen-title { font-size: 22px; }
+            .close-btn-fixed { padding: 6px 18px; font-size: 15px; }
+            .char-detail-box { padding: 20px; }
+        }
+        @media (max-width: 480px) {
+            #side-nav { right: 4px; width: 110px; gap: 6px; }
+            .nav-btn { padding: 5px 10px; font-size: 11px; border-radius: 5px; }
+            .items-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 8px; }
+            #intro-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+            .intro-fixed-header .screen-title { font-size: 18px; }
+            .close-btn-fixed { padding: 5px 14px; font-size: 13px; }
+            .char-intro-card { padding: 10px 8px 12px; }
+            .intro-name { font-size: 14px; }
+            .intro-desc { font-size: 11px; min-height: 28px; }
+            .detail-btn { font-size: 11px; padding: 4px 12px; }
+        }
+        @media (max-width: 400px) {
+            #intro-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ===== 标题界面 ===== -->
+    <div id="title-screen" class="overlay-screen">
+
+        <!-- 右上角登录区域 -->
+        <div style="position:absolute; top:20px; right:30px; z-index:10;">
+            <button id="loginBtn" class="login-btn" onclick="openLoginModal()">登录</button>
+            <span id="userDisplay" style="color:#fff; margin-left:10px; display:none;"></span>
+            <button id="logoutBtn" class="login-btn" onclick="logout()" style="display:none; margin-left:10px;">登出</button>
+        </div>
+
+        <div class="screen-title">长意中学</div>
+        <div style="color:#ff6b9d; font-size:18px; margin-bottom:10px;">注意不要旷课，以学习为主</div>
+
+        <button class="submit-btn" id="startGameBtn" onclick="showCharSelect()">开始游戏</button>
+    </div>
+
+    <!-- ===== 角色选择界面 ===== -->
+    <div id="char-select-screen" class="overlay-screen" style="display: none;">
+        <div class="screen-title" style="font-size:32px;">选择你的角色形象</div>
+        <div id="char-select-grid"></div>
+        <button class="submit-btn" id="confirm-char-btn" style="margin-top:40px; opacity:0.5; pointer-events:none;" onclick="showNameInput()">确认选择</button>
+    </div>
+
+    <!-- ===== 姓名输入界面 ===== -->
+    <div id="name-input-screen" class="overlay-screen" style="display: none;">
+        <div class="screen-title" style="font-size:32px;">请输入你的姓名</div>
+        <input type="text" id="player-name-input" class="input-field" placeholder="请输入姓名">
+        <button class="submit-btn" onclick="GameEngine.startGame()">开启高中生活</button>
+    </div>
+
+    <!-- ===== 游戏主界面 ===== -->
+    <div id="game-container">
+        <!-- 顶部状态栏 -->
+        <div id="status-bar">
+            <div class="status-bg-layer" id="status-bg-img"></div>
+            <div class="avatar-box" onclick="document.getElementById('avatar-upload').click()">
+                <img id="player-avatar" src="https://via.placeholder.com/100?text=Avatar" alt="头像">
+                <div class="avatar-upload-hint">更换</div>
+                <input type="file" id="avatar-upload" accept="image/*" style="display: none;">
+            </div>
+            <div class="status-info">
+                <div class="stat-group">
+                    <span class="status-item" style="cursor:pointer; border-color:#4caf50;" onclick="GameEngine.showStatus()">详细状态</span>
+                    <span class="status-item" style="cursor:pointer; border-color:#ff6b9d;" onclick="GameEngine.showCharacterIntro()">人物介绍</span>
+                    <span class="status-item" style="cursor:pointer; border-color:#FF9800;" onclick="openGameIntro()">📖 游戏简介</span>
+                </div>
+                <div class="stat-group">
+                    <span class="status-item" style="cursor:pointer; border-color:#9C27B0;" onclick="openSaveManager()">💾 存档</span>
+                    <span class="status-item"><span class="status-icon">📅</span> <span class="status-val" id="ui-date">第1年 9月上 早晨</span></span>
+                    <span class="status-item"><span class="status-icon">⚡</span> 体力: <span class="status-val" id="ui-stamina">2/2</span></span>
+                    <span class="status-item"><span class="status-icon">💰</span> 金币: <span class="status-val money-text" id="ui-money">100</span></span>
+                </div>
+                <div class="stat-group">
+                    <span class="status-item"><span class="status-icon">🧠</span> 智力: <span class="status-val" id="ui-int">50</span></span>
+                    <span class="status-item"><span class="status-icon">✨</span> 魅力: <span class="status-val" id="ui-cha">50</span></span>
+                    <span class="status-item"><span class="status-icon">💪</span> 力量: <span class="status-val" id="ui-str">50</span></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 主场景 -->
+        <div id="main-screen">
+            <div id="character-layer"></div>
+            <!-- 侧边导航 -->
+            <div id="side-nav"></div>
+        </div>
+
+        <!-- 对话框 -->
+        <div id="dialog-box">
+            <div id="speaker-name">系统</div>
+            <div id="dialog-text">欢迎来到长意中学...</div>
+            <div id="choices-container"></div>
+        </div>
+    </div>
+
+    <!-- ===== 状态弹窗 ===== -->
+    <div id="status-modal">
+        <h2 style="color: var(--primary-color); margin-bottom:20px;">个人状态</h2>
+        <div id="status-content"></div>
+        <button class="close-btn" onclick="document.getElementById('status-modal').style.display='none'">关闭</button>
+    </div>
+
+    <!-- ============================================================
+    人物介绍界面（固定头部 + 4列网格 + 详细按钮）
+    ============================================================ -->
+    <div id="character-intro-screen" class="overlay-screen" style="display: none;">
+        <div class="intro-fixed-header">
+            <div class="screen-title">🎭 人物介绍</div>
+            <button class="close-btn-fixed" onclick="GameEngine.hideCharacterIntro()">✕ 关闭</button>
+        </div>
+        <div id="intro-grid"></div>
+    </div>
+
+    <!-- ===== 人物详情弹窗（浮动） ===== -->
+    <div class="char-detail-overlay" id="char-detail-overlay">
+        <div class="char-detail-box" id="char-detail-box">
+            <button class="detail-close" onclick="closeCharDetail()">✕</button>
+            <div class="detail-img" id="detail-img"></div>
+            <div class="detail-name" id="detail-name"></div>
+            <div class="detail-gender" id="detail-gender"></div>
+            <div class="detail-info" id="detail-info"></div>
+        </div>
+    </div>
+
+    <!-- ===== 结局界面 ===== -->
+    <div id="ending-screen" class="overlay-screen" style="display: none;">
+        <h1 id="ending-title" style="color:var(--primary-color); font-size:48px; margin-bottom:20px;">结局</h1>
+        <p id="ending-desc" style="font-size:24px; max-width:60%; text-align:center; line-height:1.8; margin-bottom:40px;"></p>
+        <button class="submit-btn" onclick="location.reload()">重新开始</button>
+    </div>
+
+    <!-- 通用模态框 -->
+    <div id="modal-container" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:999; justify-content:center; align-items:center;">
+        <div id="modal-content" style="background:#1a1a2e; border-radius:16px; padding:30px; max-width:700px; width:90%; max-height:85vh; overflow-y:auto; border:2px solid var(--primary-color); position:relative;">
+            <button onclick="closeModal()" style="position:sticky; top:0; float:right; background:var(--primary-color); color:#fff; border:none; border-radius:50%; width:36px; height:36px; font-size:20px; cursor:pointer; z-index:10;">✕</button>
+            <div id="modal-body"></div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+    ★★★ 钓鱼游戏覆盖层 (iframe) ★★★
+    ============================================================ -->
+    <div id="fishing-overlay">
+      <iframe id="fishing-iframe" src="" allow="autoplay"></iframe>
+    </div>
+    <!-- ============================================================
+    ★★★ 跑酷游戏覆盖层 (iframe) ★★★
+    ============================================================ -->
+<div id="running-overlay">
+    <iframe id="running-iframe" src="" allow="autoplay"></iframe>
+</div>
+
+    <!-- ===== 登录/注册模块（内嵌） ===== -->
+    <template id="login-template">
+        <div style="text-align:center; margin-bottom:20px;">
+            <h2 style="color:#ff6b9d;">账号管理</h2>
+        </div>
+        <div class="tab-bar">
+            <button class="tab-btn active" data-tab="login" onclick="switchTab('login')">登录</button>
+            <button class="tab-btn" data-tab="register" onclick="switchTab('register')">注册</button>
+        </div>
+        <!-- 登录 -->
+        <div id="tab-login" class="tab-content active">
+            <form id="loginForm">
+                <div class="form-group">
+                    <label>账号</label>
+                    <input type="text" id="loginUsername" placeholder="请输入账号" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="loginPassword" placeholder="请输入密码" required>
+                </div>
+                <button type="submit" class="submit-btn">登 录</button>
+            </form>
+        </div>
+        <!-- 注册 -->
+        <div id="tab-register" class="tab-content">
+            <form id="registerForm">
+                <div class="form-group">
+                    <label>账号</label>
+                    <input type="text" id="regUsername" placeholder="请设置账号" required>
+                </div>
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" id="regPassword" placeholder="请设置密码" required>
+                </div>
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" id="regConfirm" placeholder="再次输入密码" required>
+                </div>
+                <button type="submit" class="submit-btn">注 册</button>
+            </form>
+        </div>
+        <style>
+            .tab-bar { display:flex; gap:10px; margin-bottom:20px; border-bottom:2px solid #ff6b9d; padding-bottom:8px; }
+            .tab-btn { background:transparent; border:none; color:#aaa; font-size:18px; cursor:pointer; padding:5px 16px; transition:0.3s; }
+            .tab-btn.active { color:#ff6b9d; border-bottom:3px solid #ff6b9d; }
+            .tab-content { display:none; }
+            .tab-content.active { display:block; }
+            .form-group { margin-bottom:15px; }
+            .form-group label { display:block; margin-bottom:4px; color:#ccc; }
+            .form-group input { width:100%; padding:10px; border:1px solid #555; border-radius:6px; background:rgba(255,255,255,0.05); color:#fff; font-size:16px; }
+            .form-group input:focus { border-color:#ff6b9d; outline:none; }
+        </style>
+    </template>
+
+    <!-- ===== 存档管理模块（内嵌） ===== -->
+    <template id="save-template">
+        <h2 style="color:#ff6b9d; text-align:center; margin-bottom:20px;">💾 存档管理 (最多10个)</h2>
+        <div id="saveSlots"></div>
+        <div style="text-align:center; margin-top:16px;">
+            <button onclick="closeModal()" style="padding:8px 30px; background:#ff6b9d; border:none; border-radius:6px; color:#fff; font-size:16px; cursor:pointer;">关闭</button>
+        </div>
+        <style>
+            .save-slot { display:flex; justify-content:space-between; align-items:center; background:rgba(255,255,255,0.05); border:1px solid #333; border-radius:8px; padding:12px 16px; margin-bottom:12px; transition:0.2s; }
+            .save-slot:hover { border-color:#ff6b9d; background:rgba(255,107,157,0.08); }
+            .save-info { flex:1; }
+            .save-info.empty { color:#888; font-style:italic; }
+            .save-name { font-size:16px; font-weight:bold; color:#fff; }
+            .save-date { font-size:13px; color:#aaa; margin-top:2px; }
+            .save-summary { font-size:13px; color:#ccc; margin-top:4px; }
+            .save-actions { display:flex; gap:8px; flex-shrink:0; }
+            .save-actions button { padding:6px 16px; border:none; border-radius:4px; cursor:pointer; font-size:14px; transition:0.2s; }
+            .save-actions button:first-child { background:#4caf50; color:#fff; }
+            .save-actions button:first-child:hover { background:#388e3c; }
+            .save-actions button:last-child { background:#d32f2f; color:#fff; }
+            .save-actions button:last-child:hover { background:#b71c1c; }
+            @media(max-width:480px) {
+                .save-slot { flex-direction:column; align-items:stretch; gap:8px; }
+                .save-actions { justify-content:flex-end; }
+            }
+        </style>
+    </template>
+
+    <!-- ===== 使用模块加载（替代原来的内联脚本） ===== -->
+    <script type="importmap">
+        {
+            "imports": {
+                "./config.js": "./config.js",
+                "./state.js": "./state.js",
+                "./ui.js": "./ui.js",
+                "./storylines.js": "./storylines.js",
+                "./scenes.js": "./scenes.js",
+                "./main.js": "./main.js"
+            }
+        }
+    </script>
+    <script type="module" src="main.js?v=4"></script>
+</body>
+</html>
